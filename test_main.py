@@ -5,12 +5,12 @@ conv = main.load_convention(None)[0]
 
 # 마스킹: 키 이름은 남기고 값만 가린다, 함수 호출 값은 건드리지 않는다
 text, counts = main.mask(
-    'GEMINI_API_KEY="AIzaSyA1234567890abcdefghijklmnopqrstuv"\n'
+    'GEMINI_API_KEY="' + "AIza" + "x" * 35 + '"\n'  # 가짜 키. GitHub secret scanning 오탐 방지를 위해 실행 시 조립
     "password = 'hunter2!!'\n"
     "token = get_token()\n"
     "contact: dev@example.com, 010-1234-5678\n"
 )
-assert "AIzaSy" not in text and "hunter2" not in text, text
+assert "AIza" not in text and "hunter2" not in text, text
 assert main.mask("k='AIza" + "0" * 36 + "'")[0] == "k='[MASKED_GOOGLE_KEY]'"  # 끝 글자 새지 않음
 assert "password = [MASKED_SECRET]" in text, text
 assert "token = get_token()" in text, text
