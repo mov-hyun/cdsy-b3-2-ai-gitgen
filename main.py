@@ -130,6 +130,7 @@ def apply_safe_mode(diff, policy):
         else:
             kept.append(block)
 
+    # ponytail: 앞 파일부터 줄 수를 채우므로 큰 파일 하나가 한도를 다 쓸 수 있음. 필요하면 파일별 균등 할당으로.
     lines = "".join(kept).splitlines()
     if len(lines) > policy["max_lines"]:
         report["truncated_lines"] = len(lines) - policy["max_lines"]
@@ -220,7 +221,7 @@ def build_prompt(kind, data, diff, conv):
     rule_text = "\n".join(f"- {r}" for r in rules)
     head = f"현재 브랜치: {data['branch']}\n" if kind == "pr" else ""
     return (
-        f"## 작업\n{'커밋 메시지' if kind == 'commit' else 'Pull Request 제목/본문'}를 작성하라.\n\n"
+        f"## 작업\n{'커밋 메시지' if kind == 'commit' else 'Pull Request 제목과 본문'}을 작성하라.\n\n"
         f"## 규칙\n{rule_text}\n\n"
         f"## git status\n{head}```\n{data['status']}```\n\n"
         f"## git diff\n```diff\n{diff}\n```"
