@@ -11,6 +11,7 @@ text, counts = main.mask(
     "contact: dev@example.com, 010-1234-5678\n"
 )
 assert "AIzaSy" not in text and "hunter2" not in text, text
+assert main.mask("k='AIza" + "0" * 36 + "'")[0] == "k='[MASKED_GOOGLE_KEY]'"  # 끝 글자 새지 않음
 assert "password = [MASKED_SECRET]" in text, text
 assert "token = get_token()" in text, text
 assert "[MASKED_EMAIL]" in text and "[MASKED_PHONE]" in text, text

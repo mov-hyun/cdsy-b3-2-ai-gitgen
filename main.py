@@ -40,7 +40,7 @@ DEFAULT_CONVENTION = {
 # (이름, 정규식) — 매칭 부분을 [MASKED_이름] 으로 바꾼다.
 BASE_MASK_PATTERNS = [
     ("PRIVATE_KEY", r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
-    ("GOOGLE_KEY", r"AIza[0-9A-Za-z_\-]{35}"),
+    ("GOOGLE_KEY", r"AIza[0-9A-Za-z_\-]{35,}"),
     ("OPENAI_KEY", r"sk-[A-Za-z0-9_\-]{20,}"),
     ("GITHUB_TOKEN", r"gh[pousr]_[A-Za-z0-9]{36,}"),
     ("AWS_KEY", r"AKIA[0-9A-Z]{16}"),
