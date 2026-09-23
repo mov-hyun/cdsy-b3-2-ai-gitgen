@@ -29,6 +29,11 @@ assert rep["excluded"] == [".env"], rep
 assert rep["dropped_files"] == ["f3.py", "f4.py"], rep
 assert rep["truncated_lines"] == 2 and "f2.py" in out and "SECRET" not in out, (rep, out)
 
+# 줄 한도 분배: 큰 파일이 앞에 있어도 뒤 파일이 잘리지 않는다
+diff = "diff --git a/a.md b/a.md\n" + "+doc\n" * 50 + "diff --git a/z.py b/z.py\n+code\n"
+out, rep = main.apply_safe_mode(diff, dict(conv["safe_mode"], max_lines=10))
+assert "+code" in out and rep["truncated_lines"] == 43, (rep, out)
+
 # 커밋 후처리: 잘못된 type 교정, 72자 초과 제목 절단, 불릿 정리
 msg, warns = main.finalize_commit(
     {"type": "Feature", "scope": "", "subject": "아주 " * 40, "bullets": ["- main.py 수정", "", "•  README 갱신"]}, conv)

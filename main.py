@@ -84,8 +84,11 @@ def collect(base=None):
     has_head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD"], capture_output=True).returncode == 0
     if base:
         git("rev-parse", "--verify", "-q", base)  # 없는 브랜치면 GenError
-        diff = git("diff", f"{base}...HEAD") + git("diff", "HEAD")
-        files = sorted(set(files) | set(git("diff", "--name-only", f"{base}...HEAD").split()))
+        # PR 에 올라가는 건 커밋뿐이므로 커밋되지 않은 변경은 제외한다
+        diff = git("diff", f"{base}...HEAD")
+        if files:
+            log("WARN", f"커밋되지 않은 변경 {len(files)}개는 PR 초안에 포함되지 않습니다.")
+        files = git("diff", "--name-only", f"{base}...HEAD").split()
     else:
         # 스테이징 여부와 무관하게 마지막 커밋 대비 전체 변경. 첫 커밋 전이면 staged 만.
         diff = git("diff", "HEAD") if has_head else git("diff", "--cached")
@@ -130,14 +133,22 @@ def apply_safe_mode(diff, policy):
         else:
             kept.append(block)
 
-    # ponytail: 앞 파일부터 줄 수를 채우므로 큰 파일 하나가 한도를 다 쓸 수 있음. 필요하면 파일별 균등 할당으로.
-    lines = "".join(kept).splitlines()
-    if len(lines) > policy["max_lines"]:
-        report["truncated_lines"] = len(lines) - policy["max_lines"]
-        lines = lines[: policy["max_lines"]] + [f"... ({report['truncated_lines']}줄 생략됨)"]
+    # 줄 한도를 파일별로 나눠 준다: 작은 파일부터 필요한 만큼 가져가고 남는 몫은 큰 파일에게.
+    # (앞에서부터 자르면 알파벳 순서상 앞 파일이 한도를 다 써서 핵심 파일이 빠진다)
+    blocks = [b.splitlines() for b in kept]
+    budget, left = {}, policy["max_lines"]
+    for n, i in enumerate(sorted(range(len(blocks)), key=lambda i: len(blocks[i]))):
+        budget[i] = min(len(blocks[i]), left // (len(blocks) - n))
+        left -= budget[i]
+    out = []
+    for i, b in enumerate(blocks):
+        out += b[: budget[i]]
+        if len(b) > budget[i]:
+            report["truncated_lines"] += len(b) - budget[i]
+            out.append(f"... ({len(b) - budget[i]}줄 생략됨)")
 
     extra = [(p.get("name", "CUSTOM"), p["regex"]) for p in policy["mask_patterns"]]
-    text, report["masked"] = mask("\n".join(lines), extra)
+    text, report["masked"] = mask("\n".join(out), extra)
     return text, report
 
 
