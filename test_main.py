@@ -5,12 +5,13 @@ conv = main.load_convention(None)[0]
 
 # 마스킹: 키 이름은 남기고 값만 가린다, 함수 호출 값은 건드리지 않는다
 text, counts = main.mask(
-    'GEMINI_API_KEY="AIzaSyA1234567890abcdefghijklmnopqrstuv"\n'
+    'GEMINI_API_KEY="' + "AIza" + "x" * 35 + '"\n'  # 가짜 키. GitHub secret scanning 오탐 방지를 위해 실행 시 조립
     "password = 'hunter2!!'\n"
     "token = get_token()\n"
     "contact: dev@example.com, 010-1234-5678\n"
 )
-assert "AIzaSy" not in text and "hunter2" not in text, text
+assert "AIza" not in text and "hunter2" not in text, text
+assert main.mask("k='AIza" + "0" * 36 + "'")[0] == "k='[MASKED_GOOGLE_KEY]'"  # 끝 글자 새지 않음
 assert "password = [MASKED_SECRET]" in text, text
 assert "token = get_token()" in text, text
 assert "[MASKED_EMAIL]" in text and "[MASKED_PHONE]" in text, text
@@ -28,6 +29,11 @@ out, rep = main.apply_safe_mode(diff, policy)
 assert rep["excluded"] == [".env"], rep
 assert rep["dropped_files"] == ["f3.py", "f4.py"], rep
 assert rep["truncated_lines"] == 2 and "f2.py" in out and "SECRET" not in out, (rep, out)
+
+# 줄 한도 분배: 큰 파일이 앞에 있어도 뒤 파일이 잘리지 않는다
+diff = "diff --git a/a.md b/a.md\n" + "+doc\n" * 50 + "diff --git a/z.py b/z.py\n+code\n"
+out, rep = main.apply_safe_mode(diff, dict(conv["safe_mode"], max_lines=10))
+assert "+code" in out and rep["truncated_lines"] == 43, (rep, out)
 
 # 커밋 후처리: 잘못된 type 교정, 72자 초과 제목 절단, 불릿 정리
 msg, warns = main.finalize_commit(

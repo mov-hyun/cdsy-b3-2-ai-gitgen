@@ -73,55 +73,67 @@ python main.py commit --dry-run    # API 호출 없이 전송될 프롬프트만
 
 ## 4. 출력 예시
 
+아래는 이 레포를 개발하면서 **실제로 실행한 결과**입니다.
+
 ### 커밋 메시지
 
 ```
+$ git add -A
 $ python main.py commit
-[INFO] Git status 수집 완료: 3개 파일 변경 감지
-[INFO] Git diff 수집 완료: 128줄
+[INFO] Git status 수집 완료: 2개 파일 변경 감지
+[INFO] Git diff 수집 완료: 63줄
 [SAFE] safe-mode ON (최대 10개 파일 / 200줄) | 제외 0개 파일, 초과 0개 파일 생략, 0줄 생략, 마스킹 0건
 [INFO] AI API 요청 중... (model=gemini-3.5-flash, temperature=0.2, max_tokens=4096)
-[INFO] 토큰 사용량: 입력 2210 / 출력 180
+[INFO] 토큰 사용량: 입력 1502 / 출력 221
 [INFO] AI API 호출 횟수: 1회
 [DONE] 커밋 메시지 생성 완료
 
 --- Change Summary ---
-git diff 를 AI 입력으로 연결해 커밋 메시지를 생성하는 CLI 를 추가했다. ...
+PR 초안 생성 시 커밋되지 않은 변경사항을 제외하고 경고를 출력하도록 수정했습니다. 또한, 특정 파일이 전체 줄 한도를 독점하여 다른 파일의 변경사항이 누락되는 문제를 방지하기 위해 파일별로 줄 한도를 균등하게 분배하는 로직을 도입했습니다.
 ----------------------------------------
 
 --- Commit Message ---
-feat: Git 변경 사항 기반 커밋 메시지 자동 생성 추가
+feat: PR 생성 시 미커밋 변경 제외 및 파일별 줄 한도 분배
 
-- main.py: git status/diff 수집 후 Gemini API 로 전달
-- 커밋 제목 72자 초과 시 단어 경계에서 자르도록 후처리
+- main.py의 collect 함수에서 PR 대상 비교 시 커밋되지 않은 변경사항을 제외하고 경고를 표시하도록 변경
+- main.py의 apply_safe_mode 함수에서 작은 파일부터 예산을 배정하여 파일 간 줄 한도를 균등하게 분배하도록 개선
+- test_main.py에 큰 파일이 앞에 있어도 뒤쪽 파일이 잘리지 않고 예산이 분배되는지 검증하는 테스트 추가
 ----------------------------------------
 ※ AI 초안입니다. 내용을 검토한 뒤 적용하세요.
 ```
+
+> 검토 후 적용: 버그 수정이므로 type 을 `feat` → `fix` 로 바꿔 커밋했습니다 (커밋 `a171866`). AI 초안을 그대로 쓰지 않고 사람이 확인해야 하는 이유의 실제 사례입니다.
 
 ### PR 초안
 
 ```
 $ python main.py pr --base main
 [INFO] 현재 브랜치: feature/commit-pr-generator (base: main)
-...
+[INFO] Git status 수집 완료: 4개 파일 변경 감지
+[INFO] Git diff 수집 완료: 852줄
+[SAFE] safe-mode ON (최대 10개 파일 / 200줄) | 제외 0개 파일, 초과 0개 파일 생략, 652줄 생략, 마스킹 5건 {'GOOGLE_KEY': 1, 'SECRET': 2, 'EMAIL': 1, 'PHONE': 1}
+[INFO] AI API 요청 중... (model=gemini-3.5-flash, temperature=0.2, max_tokens=4096)
+[INFO] 토큰 사용량: 입력 3308 / 출력 281
+[INFO] AI API 호출 횟수: 1회
 [DONE] PR 초안 생성 완료
 
 --- PR Title ---
-feat: 커밋/PR 초안 자동 생성 CLI 추가
+feat: safe-mode 파일별 줄 한도 분배 로직 개선 및 테스트 추가
 ----------------------------------------
 
 --- PR Body ---
 ## Why
-- 커밋 메시지와 PR 설명 작성에 드는 시간을 줄이고 형식을 통일하기 위해
+- 기존에는 앞 순서의 파일이 크면 전체 줄 수 한도를 모두 소모하여, 뒤쪽 파일의 변경 사항이 완전히 생략되는 문제가 있었습니다.
+- 알파벳 순서 등으로 인해 중요한 핵심 파일의 변경 사항이 AI 프롬프트에서 누락되는 현상을 방지해야 합니다.
 
 ## What
-- main.py: git status/diff 수집, Gemini REST 호출, 결과 검증·후처리
-- safe-mode: .env 등 민감 파일 제외, API Key·이메일 마스킹
+- main.py: apply_safe_mode 함수 내 줄 한도 초과 처리 로직을 파일별 크기 기준 균등 분배 방식으로 변경
+- test_main.py: 큰 파일이 앞에 배치되어도 뒤쪽 파일의 변경 사항이 잘리지 않고 포함되는지 검증하는 테스트 케이스 추가
 
 ## How to Test
-- export GEMINI_API_KEY="YOUR_KEY" 후 python main.py commit 실행
-- python test_main.py 실행 시 OK 출력 확인
+- python test_main.py 명령어를 실행하여 추가된 줄 한도 분배 테스트를 포함한 전체 테스트가 통과하는지 확인합니다.
 ----------------------------------------
+※ AI 초안입니다. 내용을 검토한 뒤 적용하세요.
 ```
 
 ### 오류 상황
@@ -133,6 +145,9 @@ $ python main.py commit            # 키 미설정
 
 $ python main.py commit            # 잘못된 키
 [ERROR] AI API 오류 HTTP 400 - 인증 실패(API Key 확인): API key not valid. Please pass a valid API key.
+
+$ python main.py commit            # 서버 혼잡 (실제 발생)
+[ERROR] AI API 오류 HTTP 503 - 서버 오류: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
 
 $ python main.py commit            # 변경 없음
 [INFO] 변경 사항이 없습니다. 커밋 메시지를 생성하지 않고 종료합니다.
@@ -184,6 +199,32 @@ $ python main.py commit            # 변경 없음
 | `PHONE` | 한국 휴대폰 번호 |
 
 실행할 때마다 `[SAFE]` 로그에 몇 건을 제외·생략·마스킹했는지 표시합니다. 실제로 무엇이 전송되는지는 `--dry-run`으로 미리 확인할 수 있습니다. 한도는 `--max-files` / `--max-lines` 옵션이나 설정 파일로 바꿀 수 있습니다.
+
+#### safe-mode ON / OFF 비교 (보너스 3)
+
+**정책 (기본값)**
+
+| 단계 | 기준 | 설정 방법 |
+|---|---|---|
+| 파일 제외 | `.env`, `.env.*`, `*.pem`, `*.key`, `*secret*`, `*credential*` | `safe_mode.exclude_files` |
+| 파일 수 제한 | 최대 **10개** 파일 | `--max-files`, `safe_mode.max_files` |
+| 줄 수 제한 | 최대 **200줄**. 작은 파일부터 필요한 만큼 배정하고, 남은 몫은 큰 파일에 줌 | `--max-lines`, `safe_mode.max_lines` |
+| 마스킹 | 기본 9개 패턴 + 사용자 정규식 | `safe_mode.mask_patterns` (`{"name", "regex"}`) |
+
+줄 수 제한을 파일별로 나누는 이유가 있습니다. 처음에는 앞에서부터 200줄을 잘랐는데, git diff는 파일을 알파벳 순서로 나열하기 때문에 `README.md`가 한도를 다 쓰고 정작 핵심인 `main.py`는 빠졌습니다. 그 결과 AI가 기능 추가 PR을 `docs:` PR로 요약했습니다. 실제로 겪은 문제입니다.
+
+**실험**: API Key를 하드코딩하고, 이메일·전화번호를 넣고, `.env`를 추가한 변경에 `python main.py commit`을 실행했습니다.
+
+| | safe-mode ON (기본) | `--no-safe-mode` |
+|---|---|---|
+| 로그 | `제외 1개 파일, 마스킹 3건 {'GOOGLE_KEY': 1, 'EMAIL': 1, 'PHONE': 1}` | `[WARN] safe-mode OFF: diff 원문이 그대로 외부 API 로 전송됩니다.` |
+| 전송된 `.env` | 전송 안 됨 | `+DB_PASSWORD=hunter2` / `+SLACK_TOKEN=xoxb-1234` |
+| 전송된 `app.py` | `API_KEY = "[MASKED_GOOGLE_KEY]"`<br>`ADMIN_EMAIL = "[MASKED_EMAIL]"`<br>`(문의: [MASKED_PHONE])` | `API_KEY = "AIzaSyD-demo000…"`<br>`ADMIN_EMAIL = "admin@corp.com"`<br>`(문의: 010-1234-5678)` |
+| 생성된 커밋 | `feat(app): 관리자 알림 전송 기능 추가`<br>- app.py에 웹훅을 통해 알림을 전송하는 notify 함수를 추가함<br>- app.py에 API_KEY 및 ADMIN_EMAIL 변수를 정의함<br>- 설정 관리를 위해 .env 파일을 추가함 | `feat: 관리자 알림 기능 및 환경 변수 설정 추가`<br>- app.py에 urllib.request를 사용하여 외부 웹훅으로 알림을 전송하는 notify 함수를 추가했습니다.<br>- .env 파일을 새로 생성하여 **DB_PASSWORD 및 SLACK_TOKEN 설정을 정의했습니다.** |
+
+- OFF에서는 비밀값이 외부 API로 전송됐고, 생성된 커밋 메시지에도 비밀 **변수명**이 그대로 드러났습니다.
+- ON에서는 `.env`의 파일명만 status로 전달됐기 때문에, AI가 ".env를 추가했다"는 사실만 알고 내용은 모릅니다. 요약 품질은 거의 같습니다.
+- 이 실험에서 마스킹 버그도 하나 찾았습니다. 키가 35자보다 길면 마지막 글자가 새어 나갔습니다(`[MASKED_GOOGLE_KEY]0`). 정규식을 `{35,}`로 고치고 회귀 테스트를 추가했습니다.
 
 ### 비용 / 요청 횟수
 
