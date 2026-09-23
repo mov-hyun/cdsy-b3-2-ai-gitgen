@@ -1,0 +1,25 @@
+{
+  "language": "ko",
+  "commit_types": ["feat", "fix", "docs", "refactor", "test", "chore"],
+  "require_scope": true,
+  "subject_max": 50,
+  "extra_rules": [
+    "scope 는 변경된 최상위 디렉토리 또는 모듈명(소문자)으로 쓴다.",
+    "subject 는 '~한다/~추가' 같은 명사형 종결로 끝낸다.",
+    "PR what 섹션의 각 불릿은 '파일명: 변경 내용' 형식으로 쓴다."
+  ],
+  "pr_checklist": [
+    "python test_main.py 통과",
+    "README 사용법 갱신 여부 확인",
+    "민감정보(API Key, 개인정보) 미포함 확인"
+  ],
+  "safe_mode": {
+    "max_files": 10,
+    "max_lines": 200,
+    "exclude_files": [".env", ".env.*", "*.pem", "*.key", "*secret*", "*credential*"],
+    "mask_patterns": [
+      {"name": "STUDENT_ID", "regex": "\\b20\\d{6}\\b"},
+      {"name": "INTERNAL_URL", "regex": "https?://[\\w.-]*\\.internal\\S*"}
+    ]
+  }
+}
